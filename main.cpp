@@ -45,6 +45,8 @@ struct playerInfo
 {
   string playerName;
   int playerMoney;
+  int totalBattle;
+  int winBattle;
 };
 
 cardTypes getData(const string &filename)
@@ -120,23 +122,25 @@ void saveData(const string &filename, const cardTypes &data)
 
 playerInfo getPlayerInfo(const string &filename)
 {
-  string playerName;
-  int playerMoney;
+  string playerName = "";
+  int playerMoney = 0;
+  int totalBattle = 0;
+  int winBattle = 0;
 
   ifstream file(filename);
   if (!file)
   {
     cout << "Error opening file for reading.\n";
-    return playerInfo{"", 0};
+    return playerInfo{"", 0, 0, 0};
   }
   else
   {
     getline(file, playerName);
-    file >> playerMoney;
+    file >> playerMoney >> totalBattle >> winBattle;
     cout << "\nData Read Successfully\n";
-    return playerInfo{playerName, playerMoney};
+    return playerInfo{playerName, playerMoney, totalBattle, winBattle};
   }
-  return playerInfo{"", 0};
+  return playerInfo{"", 0, 0, 0};
 };
 
 void saveInfo(const string &filename, const playerInfo &info)
@@ -148,7 +152,9 @@ void saveInfo(const string &filename, const playerInfo &info)
     return;
   }
   file << info.playerName << "\n"
-       << info.playerMoney << "\n";
+       << info.playerMoney << "\n"
+       << info.totalBattle << "\n"
+       << info.winBattle << "\n";
   cout << "\nData Saved Successfully\n";
   return;
 }
@@ -202,11 +208,14 @@ void shuffleDeck(cardRarity &source, cardRarity &target, int amount, mt19937 &rn
   vector<cards> temp = source.all;
   cleanDeck(target);
   shuffle(temp.begin(), temp.end(), rng);
-  for (int i = 0; i < amount && i < temp.size(); i++)
+  if (amount <= 0)
+    return;
+
+  size_t count = min(temp.size(), static_cast<size_t>(amount));
+  for (size_t i = 0; i < count; ++i)
   {
     addCards(target, temp[i]);
   }
-  return;
 }
 
 void checkInventory(cardTypes &playerData)
@@ -353,13 +362,15 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
   int index = 0;
   int point = 0;
   int playerAttack = 0, playerDefense = 0, enemyAttack = 0, enemyDefense = 0;
+  int deckSize = 0;
   if (rogueMode)
   {
     // Player Turn
     for (int i = 1; i <= 5; i++)
     {
       cout << "\nChoose A Card To Play\n";
-      for (int i = 0; i < playerDeck.rogue.all.size(); i++)
+      deckSize = static_cast<int>(playerDeck.rogue.all.size());
+      for (int i = 0; i < deckSize; i++)
       {
         cout << i + 1 << ". " << playerDeck.rogue.all[i].name << " Attack : " << playerDeck.rogue.all[i].attack << " Defense : " << playerDeck.rogue.all[i].defense << "\n";
       }
@@ -367,14 +378,14 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
       {
         cin >> index;
         checkCin();
-        if (index < 1 || index > playerDeck.rogue.all.size())
+        if (index < 1 || index > deckSize)
         {
           cout << "\nInvalid Choice, Try Again\n";
           continue;
         }
         else
         {
-          cout << "What Position Do You Want To Play Your Card ?\n1. Attack\n2. Defense\n";
+          cout << "What Position Do You Want To Play " << playerDeck.rogue.all[index - 1].name << " In ?\n1. Attack\n2. Defense\n";
           do
           {
             cin >> menu;
@@ -395,9 +406,10 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
               continue;
             }
             playerDeck.rogue.all.erase(playerDeck.rogue.all.begin() + index - 1);
+            deckSize--;
           } while (menu != 1 && menu != 2);
         }
-      } while (index < 1 || index > playerDeck.rogue.all.size());
+      } while (index < 1 || index > deckSize);
     }
     // Bot Turn
     for (int i = 1; i <= 5; i++)
@@ -423,7 +435,8 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
     for (int i = 1; i <= 5; i++)
     {
       cout << "\nChoose A Card To Play\n";
-      for (int a = 0; a < playerDeck.hero.all.size(); a++)
+      deckSize = static_cast<int>(playerDeck.hero.all.size());
+      for (int a = 0; a < deckSize; a++)
       {
         cout << a + 1 << ". " << playerDeck.hero.all[a].name << " Attack : " << playerDeck.hero.all[a].attack << " Defense : " << playerDeck.hero.all[a].defense << "\n";
       }
@@ -431,13 +444,13 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
       {
         cin >> index;
         checkCin();
-        if (index < 1 || index > playerDeck.hero.all.size())
+        if (index < 1 || index > deckSize)
         {
           cout << "\nInvalid Choice, Try Again\n";
         }
         else
         {
-          cout << "What Position Do You Want To Play Your Card ?\n1. Attack\n2. Defense\n";
+          cout << "What Position Do You Want To Play " << playerDeck.hero.all[index - 1].name << " In ?\n1. Attack\n2. Defense\n";
           do
           {
             cin >> menu;
@@ -458,9 +471,10 @@ int battle(bool &rogueMode, cardTypes &playerDeck, cardTypes &enemyDeck, mt19937
               continue;
             }
             playerDeck.hero.all.erase(playerDeck.hero.all.begin() + index - 1);
+            deckSize--;
           } while (menu != 1 && menu != 2);
         }
-      } while (index < 1 || index > playerDeck.hero.all.size());
+      } while (index < 1 || index > deckSize);
     }
     // Bot Turn
     for (int i = 1; i <= 5; i++)
@@ -529,16 +543,16 @@ int main()
   {
     cout << "\nEnter Your Name : ";
     getline(cin, playerInfo.playerName);
-    playerInfo.playerMoney = 50000;
-    cout << "\nYou have been given 50000 Money to Start Your Journey\n";
+    playerInfo.playerMoney = 60000;
+    cout << "\nYou have been given 60000 Money to Start Your Journey\n";
     saveInfo("playerData.txt", playerInfo);
   }
-  while (menu != 4)
+  while (menu != 5)
   {
     menu = 0;
     cout << "\nWelcome to RogueLight, " << playerInfo.playerName << "!\nMoney : " << playerInfo.playerMoney
          << "\n1. Random Battle\n2. Inventory\n3. "
-            "Shop\n4. Exit\n";
+            "Shop\n4. Player Stats\n5. Exit\n";
     cin >> menu;
     checkCin();
     switch (menu)
@@ -570,6 +584,11 @@ int main()
         {
           menu = 0;
           break;
+        }
+        playerInfo.totalBattle++;
+        if (point == 2)
+        {
+          playerInfo.winBattle++;
         }
         saveInfo("playerData.txt", playerInfo);
       }
@@ -720,6 +739,16 @@ int main()
         default:
           break;
         }
+      }
+      break;
+    case 4:
+      if (playerInfo.totalBattle > 0)
+      {
+        cout << "\nPlayer Name : " << playerInfo.playerName << "\nMoney : " << playerInfo.playerMoney << "\nTotal Battles : " << playerInfo.totalBattle << fixed << setprecision(2) << "\nWin Rate : " << static_cast<double>(playerInfo.winBattle) / playerInfo.totalBattle * 100 << "% \n";
+      }
+      else
+      {
+        cout << "\nPlayer Name : " << playerInfo.playerName << "\nMoney : " << playerInfo.playerMoney << "\nTotal Battles : " << playerInfo.totalBattle << "\nWin Rate : N/A\n";
       }
       break;
     default:
